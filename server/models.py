@@ -25,4 +25,3 @@ class Booking(db.Model):
     time = db.Column(db.Time, nullable=True)
     approved = db.Column(db.Boolean, default=False)
     status = db.Column(db.String(50), default='pending')  # New field for booking status
-    notes = db.Column(db.String(255), nullable=True)  # Added harmless change

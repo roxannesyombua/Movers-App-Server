@@ -1,10 +1,9 @@
-# app.py
-
 from flask import Flask, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from config import create_app, db
 from models import User, Inventory, Booking
+from datetime import datetime, date, time
 
 app = create_app()
 
@@ -83,11 +82,24 @@ def book_move():
     if not data or not data.get('date') or not data.get('time'):
         return jsonify({'message': 'Invalid input'}), 400
 
+    try:
+        # Convert date and time from strings to Python date and time objects
+        date_str = data['date']
+        time_str = data['time']
+
+        # Convert the date and time strings to date and time objects
+        date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+        time_obj = datetime.strptime(time_str, '%H:%M').time()
+
+    except ValueError as e:
+        return jsonify({'message': 'Invalid date or time format', 'error': str(e)}), 400
+
     user_id = get_jwt_identity()['user_id']
     booking = Booking.query.filter_by(user_id=user_id, approved=True).first()
+
     if booking:
-        booking.date = data['date']
-        booking.time = data['time']
+        booking.date = date_obj
+        booking.time = time_obj
         db.session.commit()
         return jsonify({'message': 'Booking confirmed'}), 200
 

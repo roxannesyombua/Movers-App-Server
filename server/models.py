@@ -22,6 +22,6 @@ class Booking(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     current_location = db.Column(db.String(255), nullable=False)
     new_location = db.Column(db.String(255), nullable=False)
-    date = db.Column(db.Date, nullable=False)
-    time = db.Column(db.Time, nullable=False)
+    date = db.Column(db.Date, nullable=True)
+    time = db.Column(db.Time, nullable=True)
     approved = db.Column(db.Boolean, default=False)

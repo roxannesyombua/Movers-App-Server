@@ -1,5 +1,3 @@
-# models.py
-
 from config import db
 from flask_login import UserMixin
 
@@ -9,6 +7,7 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(128), nullable=False)
+    role = db.Column(db.String(50), default='client')  # New field for user roles
 
 class Inventory(db.Model):
     __tablename__ = "inventory"
@@ -22,6 +21,8 @@ class Booking(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     current_location = db.Column(db.String(255), nullable=False)
     new_location = db.Column(db.String(255), nullable=False)
-    date = db.Column(db.Date, nullable=False)
-    time = db.Column(db.Time, nullable=False)
+    date = db.Column(db.Date, nullable=True)
+    time = db.Column(db.Time, nullable=True)
     approved = db.Column(db.Boolean, default=False)
+    status = db.Column(db.String(50), default='pending')  # New field for booking status
+    notes = db.Column(db.String(255), nullable=True)  # Added harmless change

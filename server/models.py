@@ -25,3 +25,13 @@ class Booking(db.Model):
     date = db.Column(db.Date, nullable=True)
     time = db.Column(db.Time, nullable=True)
     approved = db.Column(db.Boolean, default=False)
+    status = db.Column(db.String(50))
+
+class Quote(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    company_name = db.Column(db.String(80), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    distance = db.Column(db.Float)
+    volume = db.Column(db.Float)
+    # Additional fields for other factors
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)

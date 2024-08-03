@@ -30,10 +30,10 @@ class Booking(db.Model):
     status = db.Column(db.String(50))
 
 class Quote(db.Model):
+    __tablename__ = "quotes"
     id = db.Column(db.Integer, primary_key=True)
     company_name = db.Column(db.String(80), nullable=False)
     amount = db.Column(db.Float, nullable=False)
     distance = db.Column(db.Float)
-    volume = db.Column(db.Float)
-    # Additional fields for other factors
+    house_type = db.Column(db.String(50)) 
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)

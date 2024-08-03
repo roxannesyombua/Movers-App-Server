@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from config import create_app, db
-from models import User, Inventory, Booking
+from models import User, Inventory, Booking, Quote
 from datetime import datetime, date, time
 
 app = create_app()
@@ -145,32 +145,91 @@ def notify():
 def calculate_quote():
     data = request.json
 
-    # Extract details like distance, volume
     distance = data.get('distance')
-    volume = data.get('volume')
+    home_type = data.get('home_type')
 
-    # Basic validation
-    if distance is None or volume is None:
-        return jsonify({'error': 'Distance and volume are required.'}), 400
+    if distance is None or home_type is None:
+        return jsonify({'error': 'Distance and home_type are required.'}), 400
 
     try:
         distance = float(distance)
-        volume = float(volume)
     except ValueError:
-        return jsonify({'error': 'Distance and volume must be numbers.'}), 400
+        return jsonify({'error': 'Distance must be a number.'}), 400
 
-    # Check for negative values
-    if distance < 0 or volume < 0:
-        return jsonify({'error': 'Distance and volume cannot be negative.'}), 400
+    if distance < 0:
+        return jsonify({'error': 'Distance cannot be negative.'}), 400
 
-    # Use an algorithm to calculate the cost
-    base_rate = 100  # Base rate for the service
-    distance_rate = 5  # Rate per km
-    volume_rate = 2  # Rate per cubic meter
+    companies = [
+        {'name': 'Company A', 'base_rate': 150, 'distance_rate': 4},
+        {'name': 'Company B', 'base_rate': 200, 'distance_rate': 5},
+        {'name': 'Company C', 'base_rate': 180, 'distance_rate': 4.5},
+        {'name': 'Company D', 'base_rate': 170, 'distance_rate': 4.2}
+    ]
 
-    amount = base_rate + (distance * distance_rate) + (volume * volume_rate)
+    home_type_rates = {
+        'Bedsitter': 50,
+        'One Bedroom': 100,
+        'Studio': 80,
+        'Two Bedroom': 120,
+    }
 
-    return jsonify({'amount': amount}), 200
+    quotes = []
+    if home_type in home_type_rates:
+        for company in companies:
+            base_rate = company['base_rate'] + home_type_rates[home_type]
+            amount = base_rate + (distance * company['distance_rate'])
+            quote_id = len(quotes) + 1  # Simple ID for demonstration
+            quotes.append({
+                'quote_id': quote_id,
+                'company': company['name'],
+                'amount': amount,
+                'distance': distance,
+                'home_type': home_type
+            })
+    else:
+        return jsonify({'error': 'Invalid home_type.'}), 400
+
+    return jsonify({'quotes': quotes}), 200
+
+@app.route('/api/select_quote', methods=['POST'])
+@jwt_required()
+def select_quote():
+    data = request.json
+    if not data or not data.get('quote_id'):
+        return jsonify({'message': 'Invalid input'}), 400
+
+    user_id = get_jwt_identity()['user_id']
+    quote_id = data['quote_id']
+
+    # Retrieve the quote details using the quote_id
+    quotes = [
+        {'quote_id': 1, 'company': 'Company A', 'amount': 350, 'distance': 50, 'home_type': 'One Bedroom'},
+        {'quote_id': 2, 'company': 'Company B', 'amount': 400, 'distance': 50, 'home_type': 'One Bedroom'},
+        {'quote_id': 3, 'company': 'Company C', 'amount': 380, 'distance': 50, 'home_type': 'One Bedroom'},
+        {'quote_id': 4, 'company': 'Company D', 'amount': 370, 'distance': 50, 'home_type': 'One Bedroom'}
+    ]
+    selected_quote = next((quote for quote in quotes if quote['quote_id'] == quote_id), None)
+
+    if not selected_quote:
+        return jsonify({'message': 'Quote not found'}), 404
+
+    # Save the selected quote in the database
+    new_quote = Quote(
+        company_name=selected_quote['company'],
+        amount=selected_quote['amount'],
+        distance=selected_quote['distance'],
+        house_type=selected_quote['home_type'],
+        user_id=user_id
+    )
+    db.session.add(new_quote)
+    db.session.commit()
+
+    return jsonify({'message': 'Quote selected successfully', 'quote': {
+        'company_name': new_quote.company_name,
+        'amount': new_quote.amount,
+        'distance': new_quote.distance,
+        'house_type': new_quote.house_type
+    }}), 201
 
 @app.route('/api/update_status', methods=['POST'])
 @jwt_required()

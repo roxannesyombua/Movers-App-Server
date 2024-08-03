@@ -42,25 +42,25 @@ def login():
 @app.route('/api/inventory', methods=['GET'])
 @jwt_required()
 def get_inventory():
-    inventory = Inventory.query.all()
+    user_id = get_jwt_identity()['user_id']  # Get the ID of the logged-in user
+    inventory = Inventory.query.filter_by(user_id=user_id).all()  # Filter by user_id
     inventory_list = [{'id': item.id, 'category': item.category, 'item_name': item.item_name} for item in inventory]
     return jsonify(inventory_list), 200
+
 
 @app.route('/api/inventory', methods=['POST'])
 @jwt_required()
 def add_inventory_item():
     data = request.json
+    user_id = get_jwt_identity()['user_id']  # Get the ID of the logged-in user
 
-    # Extract data
     category = data.get('category')
     item_name = data.get('item_name')
 
-    # Basic validation
     if not category or not item_name:
         return jsonify({'message': 'Category and item name are required'}), 400
 
-    # Create and add new inventory item
-    new_item = Inventory(category=category, item_name=item_name)
+    new_item = Inventory(category=category, item_name=item_name, user_id=user_id)
     db.session.add(new_item)
     db.session.commit()
 

@@ -15,6 +15,8 @@ class Inventory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     category = db.Column(db.String(80), nullable=False)
     item_name = db.Column(db.String(120), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user = db.relationship('User', backref=db.backref('inventories', lazy=True))
 
 class Booking(db.Model):
     __tablename__ = "bookings"

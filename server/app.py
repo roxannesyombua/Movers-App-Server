@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from config import create_app, db
-from models import User, Inventory, Booking
+from models import User, Inventory, Booking, Quote
 from datetime import datetime
 
 # Create the Flask app using the factory function
@@ -24,7 +24,7 @@ def register():
 
     password = data['password']
     hashed_password = generate_password_hash(password)
-    new_user = User(username=data.get('username'), email=email, password=hashed_password)
+    new_user = User(username=data.get('username'), email=email, password=hashed_password, role=data.get('role', 'client'))
     db.session.add(new_user)
     db.session.commit()
     return jsonify({'message': 'User registered successfully', 'user_id': new_user.id}), 201
@@ -47,28 +47,46 @@ def login():
 @app.route('/api/inventory', methods=['GET'])
 @jwt_required()
 def get_inventory():
-    inventory = Inventory.query.all()
+    role = get_jwt_identity()['role']
+    user_id = get_jwt_identity()['user_id']
+    
+    if role == 'admin':
+        inventory = Inventory.query.all()
+    else:
+        inventory = Inventory.query.filter_by(user_id=user_id).all()
+
     inventory_list = [
         {
             'id': item.id,
             'category': item.category,
             'item_name': item.item_name,
-            'price': item.price  # Include price in response
+            'price': item.price
         } for item in inventory
     ]
     return jsonify(inventory_list), 200
 
 @app.route('/api/inventory', methods=['POST'])
 @jwt_required()
-def add_inventory():
+def add_inventory_item():
     data = request.json
-    if not data or not data.get('category') or not data.get('item_name') or not data.get('price'):
-        return jsonify({'message': 'Invalid input'}), 400
+    user_id = get_jwt_identity()['user_id']
+    
+    category = data.get('category')
+    item_name = data.get('item_name')
+    price = data.get('price')
 
-    new_item = Inventory(category=data['category'], item_name=data['item_name'], price=data['price'])
+    if not category or not item_name or price is None:
+        return jsonify({'message': 'Category, item name, and price are required'}), 400
+
+    new_item = Inventory(category=category, item_name=item_name, price=price, user_id=user_id)
     db.session.add(new_item)
     db.session.commit()
-    return jsonify({'message': 'Item added', 'item_id': new_item.id}), 201
+    return jsonify({'message': 'Inventory item added successfully', 'item': {
+        'id': new_item.id,
+        'category': new_item.category,
+        'item_name': new_item.item_name,
+        'price': new_item.price
+    }}), 201
 
 @app.route('/api/inventory/<int:item_id>', methods=['PUT'])
 @jwt_required()
@@ -83,7 +101,7 @@ def update_inventory(item_id):
     if 'item_name' in data:
         item.item_name = data['item_name']
     if 'price' in data:
-        item.price = data['price']  # Update price if provided
+        item.price = data['price']
 
     db.session.commit()
     return jsonify({'message': 'Item updated'}), 200
@@ -107,7 +125,7 @@ def share_location():
         return jsonify({'message': 'Invalid input'}), 400
 
     user_id = get_jwt_identity()['user_id']
-    booking = Booking(user_id=user_id, current_location=data['current_location'], new_location=data['new_location'])
+    booking = Booking(user_id=user_id, current_location=data['current_location'], new_location=data['new_location'], status='Pending')
     db.session.add(booking)
     db.session.commit()
     return jsonify({'message': 'Location details saved'}), 201
@@ -123,6 +141,7 @@ def approve_quote():
     booking = Booking.query.filter_by(user_id=user_id).first()
     if booking:
         booking.approved = data['approve']
+        booking.status = 'Approved' if data['approve'] else 'Rejected'
         db.session.commit()
         return jsonify({'message': 'Quote updated', 'approved': data['approve']}), 200
 
@@ -136,21 +155,21 @@ def book_move():
         return jsonify({'message': 'Invalid input'}), 400
 
     try:
-        # Parse date and time
-        booking_date = datetime.strptime(data['date'], '%Y-%m-%d')
-        booking_time = datetime.strptime(data['time'], '%H:%M:%S').time()
-        user_id = get_jwt_identity()['user_id']
-        booking = Booking.query.filter_by(user_id=user_id, approved=True).first()
-        if booking:
-            booking.date = booking_date
-            booking.time = booking_time
-            booking.status = 'confirmed'  # Updated status field
-            db.session.commit()
-            return jsonify({'message': 'Booking confirmed'}), 200
-
-        return jsonify({'message': 'No approved booking found'}), 404
+        booking_date = datetime.strptime(data['date'], '%Y-%m-%d').date()
+        booking_time = datetime.strptime(data['time'], '%H:%M').time()
     except ValueError:
         return jsonify({'message': 'Invalid date or time format'}), 400
+
+    user_id = get_jwt_identity()['user_id']
+    booking = Booking.query.filter_by(user_id=user_id, approved=True).first()
+    if booking:
+        booking.date = booking_date
+        booking.time = booking_time
+        booking.status = 'Confirmed'
+        db.session.commit()
+        return jsonify({'message': 'Booking confirmed'}), 200
+
+    return jsonify({'message': 'No approved booking found'}), 404
 
 @app.route('/api/bookings', methods=['GET'])
 @jwt_required()
@@ -159,9 +178,9 @@ def view_bookings():
     role = get_jwt_identity()['role']
     
     if role == 'admin':
-        bookings = Booking.query.all()  # Admin can see all bookings
+        bookings = Booking.query.all()
     else:
-        bookings = Booking.query.filter_by(user_id=user_id).all()  # Users see their own bookings
+        bookings = Booking.query.filter_by(user_id=user_id).all()
 
     bookings_list = [
         {
@@ -182,6 +201,53 @@ def view_bookings():
 def notify():
     # Placeholder for sending notifications
     return jsonify({'message': 'Notification sent'}), 200
+
+@app.route('/api/calculate_quote', methods=['POST'])
+@jwt_required()
+def calculate_quote():
+    data = request.json
+    distance = data.get('distance')
+    home_type = data.get('home_type')
+
+    if distance is None or home_type is None:
+        return jsonify({'error': 'Distance and home_type are required.'}), 400
+
+    try:
+        distance = float(distance)
+    except ValueError:
+        return jsonify({'error': 'Distance must be a number.'}), 400
+
+    if distance < 0:
+        return jsonify({'error': 'Distance cannot be negative.'}), 400
+
+    companies = [
+        {'name': 'Company A', 'base_rate': 150, 'distance_rate': 4},
+        {'name': 'Company B', 'base_rate': 200, 'distance_rate': 5},
+        {'name': 'Company C', 'base_rate': 180, 'distance_rate': 4.5},
+        {'name': 'Company D', 'base_rate': 170, 'distance_rate': 4.2}
+    ]
+
+    home_type_rates = {
+        'Bedsitter': 50,
+        'One Bedroom': 100,
+        'Studio': 80,
+        'Two Bedroom': 120,
+    }
+
+    quotes = []
+    if home_type in home_type_rates:
+        for company in companies:
+            base_rate = company['base_rate'] + home_type_rates[home_type]
+            amount = base_rate + (distance * company['distance_rate'])
+            quote_id = len(quotes) + 1
+            quotes.append({
+                'quote_id': quote_id,
+                'company': company['name'],
+                'amount': round(amount, 2)
+            })
+        return jsonify({'quotes': quotes}), 200
+    else:
+        return jsonify({'error': 'Invalid home type.'}), 400
 
 if __name__ == '__main__':
     app.run(debug=True)

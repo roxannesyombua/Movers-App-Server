@@ -1,28 +1,32 @@
 from config import db
-from flask_login import UserMixin
 
-class User(UserMixin, db.Model):
-    __tablename__ = "users"
+class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password = db.Column(db.String(128), nullable=False)
-    role = db.Column(db.String(50), default='client')  # New field for user roles
+    username = db.Column(db.String(50), nullable=False)
+    email = db.Column(db.String(100), unique=True, nullable=False)
+    password = db.Column(db.String(255), nullable=False)
+    role = db.Column(db.String(50), default='client')  # client, admin
+    bookings = db.relationship('Booking', backref='user', lazy=True)
 
 class Inventory(db.Model):
-    __tablename__ = "inventory"
     id = db.Column(db.Integer, primary_key=True)
-    category = db.Column(db.String(80), nullable=False)
-    item_name = db.Column(db.String(120), nullable=False)
-    price = db.Column(db.Float, nullable=False)  # New field for price
+    category = db.Column(db.String(50), nullable=False)
+    item_name = db.Column(db.String(100), nullable=False)
+    price = db.Column(db.Float, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
 class Booking(db.Model):
-    __tablename__ = "bookings"
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    current_location = db.Column(db.String(255), nullable=False)
-    new_location = db.Column(db.String(255), nullable=False)
+    current_location = db.Column(db.String(200), nullable=False)
+    new_location = db.Column(db.String(200), nullable=False)
     date = db.Column(db.Date, nullable=True)
     time = db.Column(db.Time, nullable=True)
     approved = db.Column(db.Boolean, default=False)
-    status = db.Column(db.String(50), default='pending')  # New field for booking status
+    status = db.Column(db.String(50), default='Pending')
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+class Quote(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    company_name = db.Column(db.String(100), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)

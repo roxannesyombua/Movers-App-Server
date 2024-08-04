@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from config import create_app, db
-from models import User, Inventory, Booking, Quote
+from models import User, Inventory, Booking, Quote, HomeType
 from datetime import datetime
 
 # Create the Flask app using the factory function
@@ -208,6 +208,7 @@ def calculate_quote():
     data = request.json
     distance = data.get('distance')
     home_type = data.get('home_type')
+    custom_calculations = data.get('custom_calculations', [])
 
     if distance is None or home_type is None:
         return jsonify({'error': 'Distance and home_type are required.'}), 400
@@ -239,15 +240,30 @@ def calculate_quote():
         for company in companies:
             base_rate = company['base_rate'] + home_type_rates[home_type]
             amount = base_rate + (distance * company['distance_rate'])
+            
+            # Apply custom calculations
+            for calc in custom_calculations:
+                if calc.get('company') == company['name']:
+                    amount += calc.get('additional_amount', 0)
+
             quote_id = len(quotes) + 1
             quotes.append({
                 'quote_id': quote_id,
                 'company': company['name'],
-                'amount': round(amount, 2)
+                'base_rate': base_rate,
+                'distance_cost': distance * company['distance_rate'],
+                'total_amount': amount
             })
-        return jsonify({'quotes': quotes}), 200
     else:
         return jsonify({'error': 'Invalid home type.'}), 400
+
+    return jsonify({'quotes': quotes}), 200
+
+@app.route('/api/home_types', methods=['GET'])
+@jwt_required()
+def get_home_types():
+    home_types = HomeType.query.all()
+    return jsonify([home_type.name for home_type in home_types]), 200
 
 if __name__ == '__main__':
     app.run(debug=True)

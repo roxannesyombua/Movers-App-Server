@@ -7,6 +7,7 @@ class User(db.Model):
     password = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(50), default='client')  # client, admin
     bookings = db.relationship('Booking', backref='user', lazy=True)
+    inventory_items = db.relationship('Inventory', backref='owner', lazy=True)
 
 class Inventory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -30,3 +31,7 @@ class Quote(db.Model):
     company_name = db.Column(db.String(100), nullable=False)
     amount = db.Column(db.Float, nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+class HomeType(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), nullable=False, unique=True)

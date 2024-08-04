@@ -14,6 +14,7 @@ class Inventory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     category = db.Column(db.String(80), nullable=False)
     item_name = db.Column(db.String(120), nullable=False)
+    price = db.Column(db.Float, nullable=False)  # New field for price
 
 class Booking(db.Model):
     __tablename__ = "bookings"

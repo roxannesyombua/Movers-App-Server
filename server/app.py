@@ -48,17 +48,24 @@ def login():
 @jwt_required()
 def get_inventory():
     inventory = Inventory.query.all()
-    inventory_list = [{'id': item.id, 'category': item.category, 'item_name': item.item_name} for item in inventory]
+    inventory_list = [
+        {
+            'id': item.id,
+            'category': item.category,
+            'item_name': item.item_name,
+            'price': item.price  # Include price in response
+        } for item in inventory
+    ]
     return jsonify(inventory_list), 200
 
 @app.route('/api/inventory', methods=['POST'])
 @jwt_required()
 def add_inventory():
     data = request.json
-    if not data or not data.get('category') or not data.get('item_name'):
+    if not data or not data.get('category') or not data.get('item_name') or not data.get('price'):
         return jsonify({'message': 'Invalid input'}), 400
 
-    new_item = Inventory(category=data['category'], item_name=data['item_name'])
+    new_item = Inventory(category=data['category'], item_name=data['item_name'], price=data['price'])
     db.session.add(new_item)
     db.session.commit()
     return jsonify({'message': 'Item added', 'item_id': new_item.id}), 201
@@ -75,7 +82,9 @@ def update_inventory(item_id):
         item.category = data['category']
     if 'item_name' in data:
         item.item_name = data['item_name']
-    
+    if 'price' in data:
+        item.price = data['price']  # Update price if provided
+
     db.session.commit()
     return jsonify({'message': 'Item updated'}), 200
 

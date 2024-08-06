@@ -4,6 +4,7 @@ from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identi
 from config import create_app, db
 from models import User, Inventory, Booking, Quote, HomeType
 from datetime import datetime
+from notifications import send_email 
 
 # Create the Flask app using the factory function
 app = create_app()
@@ -223,14 +224,20 @@ def notify():
         return jsonify({'message': 'Move request ID is required'}), 400
 
     user_id = get_jwt_identity()['user_id']
-    
-    # Simulate notification sending logic
-    # Replace with actual notification logic (e.g., email or SMS)
-    # Example:
-    # user = User.query.get(user_id)
-    # send_email(user.email, 'Move Request Confirmed', f'Your move request {move_request_id} has been confirmed.')
+    user = User.query.get(user_id)
 
-    return jsonify({'message': f'Notification for move request {move_request_id} sent'}), 200
+    if not user:
+        return jsonify({'message': 'User not found'}), 404
+
+    # Send email notification
+    send_email(
+        subject='Move Request Confirmed',
+        recipients=[user.email],
+        text_body=f'Your move request {move_request_id} has been confirmed.',
+        html_body=f'<p>Your move request <strong>{move_request_id}</strong> has been confirmed.</p>'
+    )
+
+    return jsonify({'message': f'Notification for move request {move_request_id} sent to {user.email}'}), 200
 
 @app.route('/api/calculate_quote', methods=['POST'])
 @jwt_required()

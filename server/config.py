@@ -5,6 +5,21 @@ from flask_migrate import Migrate
 from flask_login import LoginManager
 from flask_jwt_extended import JWTManager
 
+
+class Config:
+    SECRET_KEY = 'your_secret_key'
+    SQLALCHEMY_DATABASE_URI = 'your_database_uri'
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    JWT_SECRET_KEY = 'your_jwt_secret_key'
+    MAIL_SERVER = 'smtp.example.com'  # Replace with your email provider's SMTP server
+    MAIL_PORT = 587  # Typically 587 for TLS, 465 for SSL
+    MAIL_USE_TLS = True
+    MAIL_USE_SSL = False
+    MAIL_USERNAME = 'your_email@example.com'
+    MAIL_PASSWORD = 'your_email_password'
+    MAIL_DEFAULT_SENDER = ('Movers App', 'noreply@example.com')  # Replace with your sender info
+
+
 # Initialize extensions
 db = SQLAlchemy()
 migrate = Migrate()

@@ -15,16 +15,22 @@ def home():
 @app.route('/auth/register', methods=['POST'])
 def register():
     data = request.json
-    if not data or not data.get('email') or not data.get('password'):
-        return jsonify({'message': 'Invalid input'}), 400
+    email = data.get('email')
+    password = data.get('password')
+    
+    if not email or not password:
+        return jsonify({'message': 'Email and password are required'}), 400
 
-    email = data['email']
     if User.query.filter_by(email=email).first():
         return jsonify({'message': 'Email already registered'}), 409
 
-    password = data['password']
     hashed_password = generate_password_hash(password)
-    new_user = User(username=data.get('username'), email=email, password=hashed_password, role=data.get('role', 'client'))
+    new_user = User(
+        username=data.get('username'),
+        email=email,
+        password=hashed_password,
+        role=data.get('role', 'client')
+    )
     db.session.add(new_user)
     db.session.commit()
     return jsonify({'message': 'User registered successfully', 'user_id': new_user.id}), 201
@@ -32,11 +38,12 @@ def register():
 @app.route('/auth/login', methods=['POST'])
 def login():
     data = request.json
-    if not data or not data.get('email') or not data.get('password'):
-        return jsonify({'message': 'Invalid input'}), 400
+    email = data.get('email')
+    password = data.get('password')
+    
+    if not email or not password:
+        return jsonify({'message': 'Email and password are required'}), 400
 
-    email = data['email']
-    password = data['password']
     user = User.query.filter_by(email=email).first()
     if user and check_password_hash(user.password, password):
         access_token = create_access_token(identity={'user_id': user.id, 'role': user.role})
@@ -47,8 +54,9 @@ def login():
 @app.route('/api/inventory', methods=['GET'])
 @jwt_required()
 def get_inventory():
-    role = get_jwt_identity()['role']
-    user_id = get_jwt_identity()['user_id']
+    identity = get_jwt_identity()
+    role = identity['role']
+    user_id = identity['user_id']
     
     if role == 'admin':
         inventory = Inventory.query.all()
@@ -121,11 +129,14 @@ def delete_inventory(item_id):
 @jwt_required()
 def share_location():
     data = request.json
-    if not data or not data.get('current_location') or not data.get('new_location'):
-        return jsonify({'message': 'Invalid input'}), 400
+    current_location = data.get('current_location')
+    new_location = data.get('new_location')
+
+    if not current_location or not new_location:
+        return jsonify({'message': 'Current location and new location are required'}), 400
 
     user_id = get_jwt_identity()['user_id']
-    booking = Booking(user_id=user_id, current_location=data['current_location'], new_location=data['new_location'], status='Pending')
+    booking = Booking(user_id=user_id, current_location=current_location, new_location=new_location, status='Pending')
     db.session.add(booking)
     db.session.commit()
     return jsonify({'message': 'Location details saved'}), 201
@@ -134,16 +145,18 @@ def share_location():
 @jwt_required()
 def approve_quote():
     data = request.json
-    if not data or 'approve' not in data:
-        return jsonify({'message': 'Invalid input'}), 400
+    approve = data.get('approve')
+
+    if approve is None:
+        return jsonify({'message': 'Approval status is required'}), 400
 
     user_id = get_jwt_identity()['user_id']
     booking = Booking.query.filter_by(user_id=user_id).first()
     if booking:
-        booking.approved = data['approve']
-        booking.status = 'Approved' if data['approve'] else 'Rejected'
+        booking.approved = approve
+        booking.status = 'Approved' if approve else 'Rejected'
         db.session.commit()
-        return jsonify({'message': 'Quote updated', 'approved': data['approve']}), 200
+        return jsonify({'message': 'Quote updated', 'approved': approve}), 200
 
     return jsonify({'message': 'No booking found'}), 404
 
@@ -151,12 +164,15 @@ def approve_quote():
 @jwt_required()
 def book_move():
     data = request.json
-    if not data or not data.get('date') or not data.get('time'):
-        return jsonify({'message': 'Invalid input'}), 400
+    date_str = data.get('date')
+    time_str = data.get('time')
+
+    if not date_str or not time_str:
+        return jsonify({'message': 'Date and time are required'}), 400
 
     try:
-        booking_date = datetime.strptime(data['date'], '%Y-%m-%d').date()
-        booking_time = datetime.strptime(data['time'], '%H:%M').time()
+        booking_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        booking_time = datetime.strptime(time_str, '%H:%M').time()
     except ValueError:
         return jsonify({'message': 'Invalid date or time format'}), 400
 
@@ -174,8 +190,9 @@ def book_move():
 @app.route('/api/bookings', methods=['GET'])
 @jwt_required()
 def view_bookings():
-    user_id = get_jwt_identity()['user_id']
-    role = get_jwt_identity()['role']
+    identity = get_jwt_identity()
+    user_id = identity['user_id']
+    role = identity['role']
     
     if role == 'admin':
         bookings = Booking.query.all()
@@ -199,8 +216,21 @@ def view_bookings():
 @app.route('/api/notify', methods=['POST'])
 @jwt_required()
 def notify():
-    # Placeholder for sending notifications
-    return jsonify({'message': 'Notification sent'}), 200
+    data = request.json
+    move_request_id = data.get('move_request_id')
+
+    if not move_request_id:
+        return jsonify({'message': 'Move request ID is required'}), 400
+
+    user_id = get_jwt_identity()['user_id']
+    
+    # Simulate notification sending logic
+    # Replace with actual notification logic (e.g., email or SMS)
+    # Example:
+    # user = User.query.get(user_id)
+    # send_email(user.email, 'Move Request Confirmed', f'Your move request {move_request_id} has been confirmed.')
+
+    return jsonify({'message': f'Notification for move request {move_request_id} sent'}), 200
 
 @app.route('/api/calculate_quote', methods=['POST'])
 @jwt_required()

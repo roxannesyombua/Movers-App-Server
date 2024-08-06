@@ -3,7 +3,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from config import create_app, db
 from models import User, Inventory, Booking, Quote
-from datetime import datetime, date, time
+from datetime import datetime
 
 app = create_app()
 
@@ -42,17 +42,16 @@ def login():
 @app.route('/api/inventory', methods=['GET'])
 @jwt_required()
 def get_inventory():
-    user_id = get_jwt_identity()['user_id']  # Get the ID of the logged-in user
-    inventory = Inventory.query.filter_by(user_id=user_id).all()  # Filter by user_id
+    user_id = get_jwt_identity()['user_id']
+    inventory = Inventory.query.filter_by(user_id=user_id).all()
     inventory_list = [{'id': item.id, 'category': item.category, 'item_name': item.item_name} for item in inventory]
     return jsonify(inventory_list), 200
-
 
 @app.route('/api/inventory', methods=['POST'])
 @jwt_required()
 def add_inventory_item():
     data = request.json
-    user_id = get_jwt_identity()['user_id']  # Get the ID of the logged-in user
+    user_id = get_jwt_identity()['user_id']
 
     category = data.get('category')
     item_name = data.get('item_name')
@@ -111,14 +110,10 @@ def book_move():
         return jsonify({'message': 'Invalid input'}), 400
 
     try:
-        # Convert date and time from strings to Python date and time objects
         date_str = data['date']
         time_str = data['time']
-
-        # Convert the date and time strings to date and time objects
         date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
         time_obj = datetime.strptime(time_str, '%H:%M').time()
-
     except ValueError as e:
         return jsonify({'message': 'Invalid date or time format', 'error': str(e)}), 400
 
@@ -159,13 +154,9 @@ def calculate_quote():
     if distance < 0:
         return jsonify({'error': 'Distance cannot be negative.'}), 400
 
-    companies = [
-        {'name': 'Company A', 'base_rate': 150, 'distance_rate': 4},
-        {'name': 'Company B', 'base_rate': 200, 'distance_rate': 5},
-        {'name': 'Company C', 'base_rate': 180, 'distance_rate': 4.5},
-        {'name': 'Company D', 'base_rate': 170, 'distance_rate': 4.2}
-    ]
-
+    # Single company's rates
+    base_rate = 200
+    distance_rate = 700
     home_type_rates = {
         'Bedsitter': 50,
         'One Bedroom': 100,
@@ -173,23 +164,26 @@ def calculate_quote():
         'Two Bedroom': 120,
     }
 
-    quotes = []
     if home_type in home_type_rates:
-        for company in companies:
-            base_rate = company['base_rate'] + home_type_rates[home_type]
-            amount = base_rate + (distance * company['distance_rate'])
-            quote_id = len(quotes) + 1  # Simple ID for demonstration
-            quotes.append({
-                'quote_id': quote_id,
-                'company': company['name'],
-                'amount': amount,
-                'distance': distance,
-                'home_type': home_type
-            })
+        amount = base_rate + home_type_rates[home_type] + (distance * distance_rate)
+        user_id = get_jwt_identity()['user_id']
+        quote = Quote(
+            company_name='Company A',
+            amount=amount,
+            distance=distance,
+            house_type=home_type,
+            user_id=user_id
+        )
+        db.session.add(quote)
+        db.session.commit()
+        return jsonify({'quote': {
+            'company_name': quote.company_name,
+            'amount': quote.amount,
+            'distance': quote.distance,
+            'house_type': quote.house_type
+        }}), 200
     else:
         return jsonify({'error': 'Invalid home_type.'}), 400
-
-    return jsonify({'quotes': quotes}), 200
 
 @app.route('/api/select_quote', methods=['POST'])
 @jwt_required()
@@ -201,35 +195,24 @@ def select_quote():
     user_id = get_jwt_identity()['user_id']
     quote_id = data['quote_id']
 
-    # Retrieve the quote details using the quote_id
-    quotes = [
-        {'quote_id': 1, 'company': 'Company A', 'amount': 350, 'distance': 50, 'home_type': 'One Bedroom'},
-        {'quote_id': 2, 'company': 'Company B', 'amount': 400, 'distance': 50, 'home_type': 'One Bedroom'},
-        {'quote_id': 3, 'company': 'Company C', 'amount': 380, 'distance': 50, 'home_type': 'One Bedroom'},
-        {'quote_id': 4, 'company': 'Company D', 'amount': 370, 'distance': 50, 'home_type': 'One Bedroom'}
-    ]
-    selected_quote = next((quote for quote in quotes if quote['quote_id'] == quote_id), None)
+    quote = Quote.query.filter_by(id=quote_id, user_id=user_id).first()
 
-    if not selected_quote:
+    if not quote:
         return jsonify({'message': 'Quote not found'}), 404
 
     # Save the selected quote in the database
-    new_quote = Quote(
-        company_name=selected_quote['company'],
-        amount=selected_quote['amount'],
-        distance=selected_quote['distance'],
-        house_type=selected_quote['home_type'],
-        user_id=user_id
-    )
-    db.session.add(new_quote)
-    db.session.commit()
+    booking = Booking.query.filter_by(user_id=user_id).first()
+    if booking:
+        booking.status = 'Quote Selected'
+        db.session.commit()
+        return jsonify({'message': 'Quote selected successfully', 'quote': {
+            'company_name': quote.company_name,
+            'amount': quote.amount,
+            'distance': quote.distance,
+            'house_type': quote.house_type
+        }}), 201
 
-    return jsonify({'message': 'Quote selected successfully', 'quote': {
-        'company_name': new_quote.company_name,
-        'amount': new_quote.amount,
-        'distance': new_quote.distance,
-        'house_type': new_quote.house_type
-    }}), 201
+    return jsonify({'message': 'No booking found'}), 404
 
 @app.route('/api/update_status', methods=['POST'])
 @jwt_required()

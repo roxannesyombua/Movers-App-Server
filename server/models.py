@@ -32,7 +32,7 @@ class Booking(db.Model):
 class Quote(db.Model):
     __tablename__ = "quotes"
     id = db.Column(db.Integer, primary_key=True)
-    company_name = db.Column(db.String(80), nullable=False)
+    company_name = db.Column(db.String(80), nullable=False, default='Company A')
     amount = db.Column(db.Float, nullable=False)
     distance = db.Column(db.Float)
     house_type = db.Column(db.String(50)) 

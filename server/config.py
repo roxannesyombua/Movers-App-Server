@@ -6,20 +6,18 @@ from flask_login import LoginManager
 from flask_jwt_extended import JWTManager
 from flask_mail import Mail
 
-
 class Config:
-    SECRET_KEY = 'your_secret_key'
-    SQLALCHEMY_DATABASE_URI = 'your_database_uri'
+    SECRET_KEY = os.environ.get('SECRET_KEY', 'your_secret_key')
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URI', 'sqlite:///app.db')  # Correct default value
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    JWT_SECRET_KEY = 'your_jwt_secret_key'
-    MAIL_SERVER = 'smtp.example.com'  # Replace with your email provider's SMTP server
-    MAIL_PORT = 587  # Typically 587 for TLS, 465 for SSL
-    MAIL_USE_TLS = True
-    MAIL_USE_SSL = False
-    MAIL_USERNAME = 'your_email@example.com'
-    MAIL_PASSWORD = 'your_email_password'
-    MAIL_DEFAULT_SENDER = ('Movers App', 'noreply@example.com')  # Replace with your sender info
-
+    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'your_jwt_secret_key')
+    MAIL_SERVER = os.environ.get('MAIL_SERVER', 'smtp.example.com')
+    MAIL_PORT = int(os.environ.get('MAIL_PORT', 587))
+    MAIL_USE_TLS = bool(os.environ.get('MAIL_USE_TLS', True))
+    MAIL_USE_SSL = bool(os.environ.get('MAIL_USE_SSL', False))
+    MAIL_USERNAME = os.environ.get('MAIL_USERNAME', 'your_email@example.com')
+    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD', 'your_email_password')
+    MAIL_DEFAULT_SENDER = (os.environ.get('MAIL_SENDER_NAME', 'Movers App'), os.environ.get('MAIL_DEFAULT_SENDER', 'noreply@example.com'))
 
 # Initialize extensions
 db = SQLAlchemy()
@@ -30,17 +28,10 @@ mail = Mail()
 
 def create_app():
     app = Flask(__name__)
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your_secret_key')
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URI', 'sqlite:///app.db')
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'your_jwt_secret_key')
-    app.config.from_object('config.Config')
-
-    # Initialize extensions with the app
+    app.config.from_object(Config)  # Use Config class
     db.init_app(app)
     migrate.init_app(app, db)
     login_manager.init_app(app)
     jwt.init_app(app)
     mail.init_app(app)
-
     return app

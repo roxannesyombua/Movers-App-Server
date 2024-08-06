@@ -4,7 +4,8 @@ from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identi
 from config import create_app, db
 from models import User, Inventory, Booking, Quote, HomeType
 from datetime import datetime
-from notifications import send_email 
+from notifications import send_email
+
 
 # Create the Flask app using the factory function
 app = create_app()

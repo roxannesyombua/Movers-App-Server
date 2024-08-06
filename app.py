@@ -7,6 +7,10 @@ from datetime import datetime
 
 app = create_app()
 
+@app.route('/',methods=['POST'])
+def welcome():
+    return jsonify({'message':'Welcome to the HomePage'})
+
 @app.route('/auth/register', methods=['POST'])
 def register():
     data = request.json

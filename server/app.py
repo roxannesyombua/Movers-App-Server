@@ -61,13 +61,18 @@ def register():
 @app.route('/auth/login', methods=['POST'])
 def login():
     data = request.json
-    if not data or not data.get('email') or not data.get('password'):
+    if not data or not (data.get('email') or data.get('username')) or not data.get('password'):
         return jsonify({'message': 'Invalid input'}), 400
 
-    email = data['email']
+    email = data.get('email')
+    username = data.get('username')
     password = data['password']
 
-    user = User.query.filter_by(email=email).first()
+    user = None
+    if email:
+        user = User.query.filter_by(email=email).first()
+    elif username:
+        user = User.query.filter_by(username=username).first()
 
     if user and check_password_hash(user.password, password):
         access_token = create_access_token(identity={'user_id': user.id})
@@ -99,6 +104,20 @@ def add_inventory_item():
     db.session.add(new_item)
     db.session.commit()
 
+    # Send inventory addition email
+    user = User.query.get(user_id)
+    if user:
+        send_email(
+            "Inventory Item Added",
+            user.email,
+            (
+                f"Dear {user.username},\n\n"
+                f"Your inventory item '{item_name}' has been successfully added.\n\n"
+                f"Best regards,\n"
+                f"The Marvel Movers Team\n"
+            )
+        )
+
     return jsonify({'message': 'Inventory item added successfully', 'item': {'id': new_item.id, 'category': new_item.category, 'item_name': new_item.item_name, 'quantity': new_item.quantity}}), 201
 
 @app.route('/api/inventory/<int:item_id>', methods=['PUT'])
@@ -124,6 +143,20 @@ def update_inventory_item(item_id):
 
     db.session.commit()
 
+    # Send inventory update email
+    user = User.query.get(user_id)
+    if user:
+        send_email(
+            "Inventory Item Updated",
+            user.email,
+            (
+                f"Dear {user.username},\n\n"
+                f"Your inventory item '{item_name}' has been updated.\n\n"
+                f"Best regards,\n"
+                f"The Marvel Movers Team\n"
+            )
+        )
+
     return jsonify({'message': 'Inventory item updated successfully', 'item': {'id': item.id, 'category': item.category, 'item_name': item.item_name, 'quantity': item.quantity}}), 200
 
 @app.route('/api/inventory/<int:item_id>', methods=['DELETE'])
@@ -135,8 +168,23 @@ def delete_inventory_item(item_id):
     if not item:
         return jsonify({'message': 'Inventory item not found'}), 404
 
+    item_name = item.item_name
     db.session.delete(item)
     db.session.commit()
+
+    # Send inventory deletion email
+    user = User.query.get(user_id)
+    if user:
+        send_email(
+            "Inventory Item Deleted",
+            user.email,
+            (
+                f"Dear {user.username},\n\n"
+                f"Your inventory item '{item_name}' has been successfully deleted.\n\n"
+                f"Best regards,\n"
+                f"The Marvel Movers Team\n"
+            )
+        )
 
     return jsonify({'message': 'Inventory item deleted successfully'}), 200
 
@@ -435,6 +483,19 @@ def delete_account():
 
     db.session.delete(user)
     db.session.commit()
+
+    # Send account deletion email
+    if user:
+        send_email(
+            "Account Deleted",
+            user.email,
+            (
+                f"Dear {user.username},\n\n"
+                f"Your account with Marvel Movers has been successfully deleted.\n\n"
+                f"Best regards,\n"
+                f"The Marvel Movers Team\n"
+            )
+        )
 
     return jsonify({'message': 'Account and associated data deleted successfully'}), 200
 

@@ -1,0 +1,684 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+      "title": "Moving Service API",
+      "version": "1.0.0",
+      "description": "API for a moving service application."
+    },
+    "paths": {
+      "/": {
+        "get": {
+          "summary": "Welcome",
+          "description": "Returns a welcome message.",
+          "responses": {
+            "200": {
+              "description": "Welcome message",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "message": {
+                        "type": "string",
+                        "example": "Welcome to the HomePage"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/auth/register": {
+        "post": {
+          "summary": "Register User",
+          "description": "Registers a new user.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "username": { "type": "string", "example": "newuser" },
+                    "email": { "type": "string", "example": "newuser@example.com" },
+                    "password": { "type": "string", "example": "newpassword" }
+                  },
+                  "required": ["email", "password"]
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "User registered successfully",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "message": { "type": "string", "example": "User registered successfully" },
+                      "user_id": { "type": "integer", "example": 1 }
+                    }
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "Invalid input",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "message": { "type": "string", "example": "Invalid input" }
+                    }
+                  }
+                }
+              }
+            },
+            "409": {
+              "description": "Email already registered",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "message": { "type": "string", "example": "Email already registered" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/auth/login": {
+        "post": {
+          "summary": "User Login",
+          "description": "Logs in a user.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "email": { "type": "string", "example": "user@example.com" },
+                    "password": { "type": "string", "example": "userpassword" }
+                  },
+                  "required": ["email", "password"]
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Login successful",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "message": { "type": "string", "example": "Login successful" },
+                      "access_token": { "type": "string", "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." }
+                    }
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "Invalid input",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "message": { "type": "string", "example": "Invalid input" }
+                    }
+                  }
+                }
+              }
+            },
+            "401": {
+              "description": "Invalid credentials",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "message": { "type": "string", "example": "Invalid credentials" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/inventory": {
+        "get": {
+          "summary": "Get Inventory",
+          "description": "Fetches the inventory for the authenticated user.",
+          "security": [
+            { "bearerAuth": [] }
+          ],
+          "responses": {
+            "200": {
+              "description": "List of inventory items",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "integer", "example": 1 },
+                        "category": { "type": "string", "example": "Furniture" },
+                        "item_name": { "type": "string", "example": "Sofa" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "summary": "Add Inventory Item",
+          "description": "Adds an item to the user's inventory.",
+          "security": [
+            { "bearerAuth": [] }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "category": { "type": "string", "example": "Furniture" },
+                    "item_name": { "type": "string", "example": "Sofa" }
+                  },
+                  "required": ["category", "item_name"]
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Inventory item added successfully",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "message": { "type": "string", "example": "Inventory item added successfully" },
+                      "item": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "integer", "example": 1 },
+                          "category": { "type": "string", "example": "Furniture" },
+                          "item_name": { "type": "string", "example": "Sofa" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "Invalid input",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "message": { "type": "string", "example": "Category and item name are required" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/location": {
+        "post": {
+          "summary": "Share Location",
+          "description": "Shares the current and new location of the user.",
+          "security": [
+            { "bearerAuth": [] }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "current_location": { "type": "string", "example": "123 Old St" },
+                    "new_location": { "type": "string", "example": "456 New St" }
+                  },
+                  "required": ["current_location", "new_location"]
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Location details saved",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "message": { "type": "string", "example": "Location details saved" }
+                    }
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "Invalid input",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "message": { "type": "string", "example": "Invalid input" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/quote": {
+        "post": {
+          "summary": "Approve Quote",
+          "description": "Approves or rejects a quote.",
+          "security": [
+            { "bearerAuth": [] }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "approve": { "type": "boolean", "example": true }
+                  },
+                  "required": ["approve"]
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Quote updated",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "message": { "type": "string", "example": "Quote updated" },
+                      "approved": { "type": "boolean", "example": true }
+                    }
+                  }
+                }
+              }
+            },
+            "404": {
+              "description": "No booking found",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "message": { "type": "string", "example": "No booking found" }
+                    }
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "Invalid input",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "message": { "type": "string", "example": "Invalid input" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/book": {
+        "post": {
+          "summary": "Book Move",
+          "description": "Books a move with a specified date and time.",
+          "security": [
+            { "bearerAuth": [] }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "date": { "type": "string", "example": "2023-07-20" },
+                    "time": { "type": "string", "example": "14:00" }
+                  },
+                  "required": ["date", "time"]
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Booking confirmed",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "message": { "type": "string", "example": "Booking confirmed" }
+                    }
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "Invalid input",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "message": { "type": "string", "example": "Invalid input" }
+                    }
+                  }
+                }
+              }
+            },
+            "404": {
+              "description": "No approved booking found",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "message": { "type": "string", "example": "No approved booking found" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/notify": {
+        "post": {
+          "summary": "Send Notification",
+          "description": "Sends a notification (placeholder).",
+          "security": [
+            { "bearerAuth": [] }
+          ],
+          "responses": {
+            "200": {
+              "description": "Notification sent",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "message": { "type": "string", "example": "Notification sent" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/calculate_quote": {
+        "post": {
+          "summary": "Calculate Quote",
+          "description": "Calculates a quote based on distance and home type.",
+          "security": [
+            { "bearerAuth": [] }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "distance": { "type": "number", "example": 15.0 },
+                    "home_type": { "type": "string", "example": "One Bedroom" }
+                  },
+                  "required": ["distance", "home_type"]
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Quote calculated",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "quote": {
+                        "type": "object",
+                        "properties": {
+                          "company_name": { "type": "string", "example": "Company A" },
+                          "amount": { "type": "number", "example": 12500.0 },
+                          "distance": { "type": "number", "example": 15.0 },
+                          "house_type": { "type": "string", "example": "One Bedroom" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "Invalid input",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "error": { "type": "string", "example": "Distance and home_type are required." }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/select_quote": {
+        "post": {
+          "summary": "Select Quote",
+          "description": "Selects a quote for the user.",
+          "security": [
+            { "bearerAuth": [] }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "quote_id": { "type": "integer", "example": 1 }
+                  },
+                  "required": ["quote_id"]
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Quote selected successfully",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "message": { "type": "string", "example": "Quote selected successfully" },
+                      "quote": {
+                        "type": "object",
+                        "properties": {
+                          "company_name": { "type": "string", "example": "Company A" },
+                          "amount": { "type": "number", "example": 12500.0 },
+                          "distance": { "type": "number", "example": 15.0 },
+                          "house_type": { "type": "string", "example": "One Bedroom" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "404": {
+              "description": "Quote not found",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "message": { "type": "string", "example": "Quote not found" }
+                    }
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "Invalid input",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "message": { "type": "string", "example": "Invalid input" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/update_status": {
+        "post": {
+          "summary": "Update Status",
+          "description": "Updates the status of a booking.",
+          "security": [
+            { "bearerAuth": [] }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "Confirmed" }
+                  },
+                  "required": ["status"]
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Status updated",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "message": { "type": "string", "example": "Status updated" }
+                    }
+                  }
+                }
+              }
+            },
+            "404": {
+              "description": "No booking found",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "message": { "type": "string", "example": "No booking found" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/get_status": {
+        "get": {
+          "summary": "Get Status",
+          "description": "Gets the status of a booking.",
+          "security": [
+            { "bearerAuth": [] }
+          ],
+          "responses": {
+            "200": {
+              "description": "Booking status",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "status": { "type": "string", "example": "Confirmed" }
+                    }
+                  }
+                }
+              }
+            },
+            "404": {
+              "description": "No booking found",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "message": { "type": "string", "example": "No booking found" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "components": {
+      "securitySchemes": {
+        "bearerAuth": {
+          "type": "http",
+          "scheme": "bearer",
+          "bearerFormat": "JWT"
+        }
+      }
+    }
+  }

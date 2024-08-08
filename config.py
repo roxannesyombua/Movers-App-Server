@@ -7,6 +7,7 @@ from flask_login import LoginManager
 from flask_jwt_extended import JWTManager
 from flask_mail import Mail
 from dotenv import load_dotenv
+from flask_cors import CORS
 
 # Initialize extensions
 db = SQLAlchemy()
@@ -37,5 +38,7 @@ def create_app():
     login_manager.init_app(app)
     jwt.init_app(app)
     mail.init_app(app)
+
+    CORS(app)
 
     return app

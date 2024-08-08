@@ -7,7 +7,7 @@ from datetime import datetime
 
 app = create_app()
 
-@app.route('/',methods=['POST'])
+@app.route('/',methods=['GET'])
 def welcome():
     return jsonify({'message':'Welcome to the HomePage'})
 
@@ -158,36 +158,51 @@ def calculate_quote():
     if distance < 0:
         return jsonify({'error': 'Distance cannot be negative.'}), 400
 
-    # Single company's rates
-    base_rate = 200
+    # Fixed costs
+    packing_cost = 4000
+    assembly_cost = 3000
+    insurance_cost = 3000
     distance_rate = 700
+    unit_distance = 5  # 1 unit = 5 km
+
+    # Room type costs
     home_type_rates = {
-        'Bedsitter': 50,
-        'One Bedroom': 100,
-        'Studio': 80,
-        'Two Bedroom': 120,
+        'Studio': 4500,
+        'Bedsitter': 5000,
+        'One Bedroom': 6500,
+        'Two Bedroom': 8000,
     }
 
-    if home_type in home_type_rates:
-        amount = base_rate + home_type_rates[home_type] + (distance * distance_rate)
-        user_id = get_jwt_identity()['user_id']
-        quote = Quote(
-            company_name='Company A',
-            amount=amount,
-            distance=distance,
-            house_type=home_type,
-            user_id=user_id
-        )
-        db.session.add(quote)
-        db.session.commit()
-        return jsonify({'quote': {
-            'company_name': quote.company_name,
-            'amount': quote.amount,
-            'distance': quote.distance,
-            'house_type': quote.house_type
-        }}), 200
-    else:
+    if home_type not in home_type_rates:
         return jsonify({'error': 'Invalid home_type.'}), 400
+
+    # Calculate transportation cost
+    units = distance / unit_distance
+    transportation_cost = units * distance_rate
+
+    # Calculate total package cost
+    home_type_cost = home_type_rates[home_type]
+    total_package_cost = (packing_cost + assembly_cost + transportation_cost +
+                          insurance_cost + home_type_cost)
+
+    user_id = get_jwt_identity()['user_id']
+    quote = Quote(
+        company_name='Company A',
+        amount=total_package_cost,
+        distance=distance,
+        house_type=home_type,
+        user_id=user_id
+    )
+    db.session.add(quote)
+    db.session.commit()
+
+    return jsonify({'quote': {
+        'company_name': quote.company_name,
+        'amount': quote.amount,
+        'distance': quote.distance,
+        'house_type': quote.house_type
+    }}), 200
+
 
 @app.route('/api/select_quote', methods=['POST'])
 @jwt_required()

@@ -1,15 +1,26 @@
 from flask import Flask, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
-from config import create_app, db
+from config import create_app, db, mail
 from models import User, Inventory, Booking, Quote
 from datetime import datetime
+from flask_mail import Message
+from sqlalchemy.exc import SQLAlchemyError
 
 app = create_app()
 
-@app.route('/',methods=['GET'])
-def welcome():
-    return jsonify({'message':'Welcome to the HomePage'})
+def send_email(subject, recipient, body):
+    msg = Message(subject, recipients=[recipient])
+    msg.body = body
+    try:
+        mail.send(msg)
+    except Exception as e:
+        print(f"Failed to send email: {str(e)}")
+
+@app.route('/', methods=['GET'])
+def home():
+    return jsonify({'message': 'Welcome to the Movers App API. Use /auth/register to create a new account, /auth/login to log in, and other API endpoints for various functionalities.'})
+
 
 @app.route('/auth/register', methods=['POST'])
 def register():
@@ -23,9 +34,29 @@ def register():
 
     password = data['password']
     hashed_password = generate_password_hash(password)
+
     new_user = User(username=data.get('username'), email=email, password=hashed_password)
     db.session.add(new_user)
-    db.session.commit()
+
+    try:
+        db.session.commit()
+        # Send welcome email
+        send_email(
+            "Welcome to Marvel Movers!",
+            email,
+            (
+                "Dear Valued Customer,\n\n"
+                "Thank you for choosing Marvel Movers! We are thrilled to have you on board. Our team is dedicated to providing you with exceptional service for all your moving needs.\n\n"
+                "If you have any questions or need assistance, please do not hesitate to contact us. We look forward to helping you make your move as smooth and stress-free as possible.\n\n"
+                "Best regards,\n"
+                "The Marvel Movers Team\n"
+                "Contact us: marvelmoverz@gmail.com\n"
+            )
+        )
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        return jsonify({'message': 'Failed to register user.', 'error': str(e)}), 500
+
     return jsonify({'message': 'User registered successfully', 'user_id': new_user.id}), 201
 
 @app.route('/auth/login', methods=['POST'])

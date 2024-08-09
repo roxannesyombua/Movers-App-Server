@@ -94,22 +94,100 @@ def get_inventory():
 def add_inventory_item():
     data = request.json
     user_id = get_jwt_identity()['user_id']
-
     category = data.get('category')
     item_name = data.get('item_name')
+    quantity = data.get('quantity', 1)
 
     if not category or not item_name:
         return jsonify({'message': 'Category and item name are required'}), 400
 
-    new_item = Inventory(category=category, item_name=item_name, user_id=user_id)
+    new_item = Inventory(category=category, item_name=item_name, quantity=quantity, user_id=user_id)
     db.session.add(new_item)
     db.session.commit()
 
-    return jsonify({'message': 'Inventory item added successfully', 'item': {
-        'id': new_item.id,
-        'category': new_item.category,
-        'item_name': new_item.item_name
-    }}), 201
+    # Send inventory addition email
+    user = User.query.get(user_id)
+    if user:
+        send_email(
+            "Inventory Item Added",
+            user.email,
+            (
+                f"Dear {user.username},\n\n"
+                f"Your inventory item '{item_name}' has been successfully added.\n\n"
+                f"Best regards,\n"
+                f"The Marvel Movers Team\n"
+            )
+        )
+
+    return jsonify({'message': 'Inventory item added successfully', 'item': {'id': new_item.id, 'category': new_item.category, 'item_name': new_item.item_name, 'quantity': new_item.quantity}}), 201
+
+@app.route('/api/inventory/<int:item_id>', methods=['PUT'])
+@jwt_required()
+def update_inventory_item(item_id):
+    data = request.json
+    user_id = get_jwt_identity()['user_id']
+    item = Inventory.query.filter_by(id=item_id, user_id=user_id).first()
+
+    if not item:
+        return jsonify({'message': 'Inventory item not found'}), 404
+
+    category = data.get('category')
+    item_name = data.get('item_name')
+    quantity = data.get('quantity')
+
+    if category:
+        item.category = category
+    if item_name:
+        item.item_name = item_name
+    if quantity is not None:
+        item.quantity = quantity
+
+    db.session.commit()
+
+    # Send inventory update email
+    user = User.query.get(user_id)
+    if user:
+        send_email(
+            "Inventory Item Updated",
+            user.email,
+            (
+                f"Dear {user.username},\n\n"
+                f"Your inventory item '{item_name}' has been updated.\n\n"
+                f"Best regards,\n"
+                f"The Marvel Movers Team\n"
+            )
+        )
+
+    return jsonify({'message': 'Inventory item updated successfully', 'item': {'id': item.id, 'category': item.category, 'item_name': item.item_name, 'quantity': item.quantity}}), 200
+
+@app.route('/api/inventory/<int:item_id>', methods=['DELETE'])
+@jwt_required()
+def delete_inventory_item(item_id):
+    user_id = get_jwt_identity()['user_id']
+    item = Inventory.query.filter_by(id=item_id, user_id=user_id).first()
+
+    if not item:
+        return jsonify({'message': 'Inventory item not found'}), 404
+
+    item_name = item.item_name
+    db.session.delete(item)
+    db.session.commit()
+
+    # Send inventory deletion email
+    user = User.query.get(user_id)
+    if user:
+        send_email(
+            "Inventory Item Deleted",
+            user.email,
+            (
+                f"Dear {user.username},\n\n"
+                f"Your inventory item '{item_name}' has been successfully deleted.\n\n"
+                f"Best regards,\n"
+                f"The Marvel Movers Team\n"
+            )
+        )
+
+    return jsonify({'message': 'Inventory item deleted successfully'}), 200
 
 @app.route('/api/location', methods=['POST'])
 @jwt_required()

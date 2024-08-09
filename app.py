@@ -204,24 +204,163 @@ def share_location():
 
 @app.route('/api/quote', methods=['POST'])
 @jwt_required()
-def approve_quote():
+def calculate_quote():
     data = request.json
-    if not data or 'approve' not in data:
-        return jsonify({'message': 'Invalid input'}), 400
+    distance = data.get('distance')
+    home_type = data.get('home_type')
 
-    user_id = get_jwt_identity()['user_id']
-    booking = Booking.query.filter_by(user_id=user_id).first()
-    if booking:
-        booking.approved = data['approve']
-        if data['approve']:
-            booking.status = 'Approved'
-        else:
-            booking.status = 'Rejected'
+    if distance is None or home_type is None:
+        return jsonify({'error': 'Distance and home_type are required.'}), 400
+
+    try:
+        distance = float(distance)
+    except ValueError:
+        return jsonify({'error': 'Distance must be a number.'}), 400
+
+    if distance < 0:
+        return jsonify({'error': 'Distance cannot be negative.'}), 400
+
+    # Calculate costs according to the new scheme
+    packing_cost = 4000
+    assembly_cost = 3000
+    insurance_cost = 3000
+
+    distance_units = distance / 5
+    transportation_cost = distance_units * 700
+
+    home_type_costs = {
+        'Bedsitter': 5000,
+        'One Bedroom': 6500,
+        'Studio': 4500,
+        'Two Bedroom': 8000,
+    }
+
+    if home_type in home_type_costs:
+        room_type_cost = home_type_costs[home_type]
+        total_cost = packing_cost + assembly_cost + transportation_cost + insurance_cost + room_type_cost
+
+        user_id = get_jwt_identity()['user_id']
+        quote = Quote(company_name='Marvel Movers', amount=total_cost, distance=distance, house_type=home_type, user_id=user_id)
+        db.session.add(quote)
         db.session.commit()
-        return jsonify({'message': 'Quote updated', 'approved': data['approve']}), 200
 
-    return jsonify({'message': 'No booking found'}), 404
+        # Send quote email
+        user = User.query.get(user_id)
+        if user:
+            send_email(
+                "Your Marvel Movers Quote",
+                user.email,
+                (
+                    f"Dear {user.username},\n\n"
+                    f"Thank you for requesting a moving quote with Marvel Movers. Here are the details:\n\n"
+                    f"Property Type: {home_type}\n"
+                    f"Distance: {distance} km\n"
+                    f"Total Cost: {total_cost} KSh\n\n"
+                    f"We look forward to serving you!\n"
+                    f"Best regards,\n"
+                    f"The Marvel Movers Team\n"
+                )
+            )
 
+        return jsonify({'quote': {'company_name': quote.company_name, 'amount': quote.amount, 'distance': quote.distance, 'house_type': quote.house_type}}), 200
+
+    else:
+        return jsonify({'error': 'Invalid home_type.'}), 400
+
+@app.route('/api/quote/<int:quote_id>', methods=['PUT'])
+@jwt_required()
+def update_quote(quote_id):
+    data = request.json
+    user_id = get_jwt_identity()['user_id']
+    quote = Quote.query.filter_by(id=quote_id, user_id=user_id).first()
+
+    if not quote:
+        return jsonify({'message': 'Quote not found'}), 404
+
+    distance = data.get('distance')
+    home_type = data.get('home_type')
+
+    if distance is not None:
+        try:
+            distance = float(distance)
+            if distance < 0:
+                return jsonify({'error': 'Distance cannot be negative.'}), 400
+            quote.distance = distance
+        except ValueError:
+            return jsonify({'error': 'Distance must be a number.'}), 400
+
+    if home_type is not None:
+        quote.house_type = home_type
+
+    # Recalculate quote
+    distance_units = quote.distance / 5
+    transportation_cost = distance_units * 700
+
+    home_type_costs = {
+        'Bedsitter': 5000,
+        'One Bedroom': 6500,
+        'Studio': 4500,
+        'Two Bedroom': 8000,
+    }
+
+    if quote.house_type in home_type_costs:
+        room_type_cost = home_type_costs[quote.house_type]
+        total_cost = 4000 + 3000 + transportation_cost + 3000 + room_type_cost
+        quote.amount = total_cost
+        db.session.commit()
+
+        # Send updated quote email
+        user = User.query.get(user_id)
+        if user:
+            send_email(
+                "Your Updated Marvel Movers Quote",
+                user.email,
+                (
+                    f"Dear {user.username},\n\n"
+                    f"Your moving quote has been updated. Here are the new details:\n\n"
+                    f"Property Type: {quote.house_type}\n"
+                    f"Distance: {quote.distance} km\n"
+                    f"Total Cost: {quote.amount} KSh\n\n"
+                    f"We look forward to serving you!\n"
+                    f"Best regards,\n"
+                    f"The Marvel Movers Team\n"
+                )
+            )
+
+        return jsonify({'quote': {'company_name': quote.company_name, 'amount': quote.amount, 'distance': quote.distance, 'house_type': quote.house_type}}), 200
+
+    else:
+        return jsonify({'error': 'Invalid home_type.'}), 400
+
+@app.route('/api/quote/<int:quote_id>', methods=['DELETE'])
+@jwt_required()
+def delete_quote(quote_id):
+    user_id = get_jwt_identity()['user_id']
+    quote = Quote.query.filter_by(id=quote_id, user_id=user_id).first()
+
+    if not quote:
+        return jsonify({'message': 'Quote not found'}), 404
+
+    db.session.delete(quote)
+    db.session.commit()
+
+    user = User.query.get(user_id)
+    if user:
+        send_email(
+            "Quote Deleted",
+            user.email,
+            (
+                f"Dear {user.username},\n\n"
+                f"Your quote with Marvel Movers has been successfully deleted.\n\n"
+                f"Best regards,\n"
+                f"The Marvel Movers Team\n"
+            )
+        )
+
+    return jsonify({'message': 'Quote deleted successfully'}), 200
+
+@app.route('/api/booking', methods=['POST'])
+@jwt_required()
 @app.route('/api/book', methods=['POST'])
 @jwt_required()
 def book_move():

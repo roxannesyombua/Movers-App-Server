@@ -62,18 +62,24 @@ def register():
 @app.route('/auth/login', methods=['POST'])
 def login():
     data = request.json
-    if not data or not data.get('email') or not data.get('password'):
+    if not data or not (data.get('email') or data.get('username')) or not data.get('password'):
         return jsonify({'message': 'Invalid input'}), 400
 
-    email = data['email']
+    email = data.get('email')
+    username = data.get('username')
     password = data['password']
-    user = User.query.filter_by(email=email).first()
+
+    user = None
+    if email:
+        user = User.query.filter_by(email=email).first()
+    elif username:
+        user = User.query.filter_by(username=username).first()
+
     if user and check_password_hash(user.password, password):
         access_token = create_access_token(identity={'user_id': user.id})
         return jsonify({'message': 'Login successful', 'access_token': access_token}), 200
 
     return jsonify({'message': 'Invalid credentials'}), 401
-
 @app.route('/api/inventory', methods=['GET'])
 @jwt_required()
 def get_inventory():

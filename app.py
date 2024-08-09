@@ -21,7 +21,6 @@ def send_email(subject, recipient, body):
 def home():
     return jsonify({'message': 'Welcome to the Movers App API. Use /auth/register to create a new account, /auth/login to log in, and other API endpoints for various functionalities.'})
 
-
 @app.route('/auth/register', methods=['POST'])
 def register():
     data = request.json
@@ -86,7 +85,7 @@ def login():
 def get_inventory():
     user_id = get_jwt_identity()['user_id']
     inventory = Inventory.query.filter_by(user_id=user_id).all()
-    inventory_list = [{'id': item.id, 'category': item.category, 'item_name': item.item_name} for item in inventory]
+    inventory_list = [{'id': item.id, 'category': item.category, 'item_name': item.item_name, 'quantity': item.quantity} for item in inventory]
     return jsonify(inventory_list), 200
 
 @app.route('/api/inventory', methods=['POST'])
@@ -200,6 +199,7 @@ def share_location():
     booking = Booking(user_id=user_id, current_location=data['current_location'], new_location=data['new_location'], status="Pending")
     db.session.add(booking)
     db.session.commit()
+
     return jsonify({'message': 'Location details saved'}), 201
 
 @app.route('/api/quote', methods=['POST'])
@@ -359,158 +359,145 @@ def delete_quote(quote_id):
 
     return jsonify({'message': 'Quote deleted successfully'}), 200
 
-
-@app.route('/api/book', methods=['POST'])
+@app.route('/api/booking', methods=['POST'])
 @jwt_required()
-def book_move():
+def create_booking():
     data = request.json
-    if not data or not data.get('date') or not data.get('time'):
-        return jsonify({'message': 'Invalid input'}), 400
-
-    try:
-        date_str = data['date']
-        time_str = data['time']
-        date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
-        time_obj = datetime.strptime(time_str, '%H:%M').time()
-    except ValueError as e:
-        return jsonify({'message': 'Invalid date or time format', 'error': str(e)}), 400
-
     user_id = get_jwt_identity()['user_id']
-    booking = Booking.query.filter_by(user_id=user_id, approved=True).first()
+    quote_id = data.get('quote_id')
 
-    if booking:
-        booking.date = date_obj
-        booking.time = time_obj
-        booking.status = 'Confirmed'
-        db.session.commit()
-        return jsonify({'message': 'Booking confirmed'}), 200
-
-    return jsonify({'message': 'No approved booking found'}), 404
-
-@app.route('/api/notify', methods=['POST'])
-@jwt_required()
-def notify():
-    # Placeholder for sending notifications
-    return jsonify({'message': 'Notification sent'}), 200
-
-@app.route('/api/calculate_quote', methods=['POST'])
-@jwt_required()
-def calculate_quote():
-    data = request.json
-
-    distance = data.get('distance')
-    home_type = data.get('home_type')
-
-    if distance is None or home_type is None:
-        return jsonify({'error': 'Distance and home_type are required.'}), 400
-
-    try:
-        distance = float(distance)
-    except ValueError:
-        return jsonify({'error': 'Distance must be a number.'}), 400
-
-    if distance < 0:
-        return jsonify({'error': 'Distance cannot be negative.'}), 400
-
-    # Fixed costs
-    packing_cost = 4000
-    assembly_cost = 3000
-    insurance_cost = 3000
-    distance_rate = 700
-    unit_distance = 5  # 1 unit = 5 km
-
-    # Room type costs
-    home_type_rates = {
-        'Studio': 4500,
-        'Bedsitter': 5000,
-        'One Bedroom': 6500,
-        'Two Bedroom': 8000,
-    }
-
-    if home_type not in home_type_rates:
-        return jsonify({'error': 'Invalid home_type.'}), 400
-
-    # Calculate transportation cost
-    units = distance / unit_distance
-    transportation_cost = units * distance_rate
-
-    # Calculate total package cost
-    home_type_cost = home_type_rates[home_type]
-    total_package_cost = (packing_cost + assembly_cost + transportation_cost +
-                          insurance_cost + home_type_cost)
-
-    user_id = get_jwt_identity()['user_id']
-    quote = Quote(
-        company_name='Company A',
-        amount=total_package_cost,
-        distance=distance,
-        house_type=home_type,
-        user_id=user_id
-    )
-    db.session.add(quote)
-    db.session.commit()
-
-    return jsonify({'quote': {
-        'company_name': quote.company_name,
-        'amount': quote.amount,
-        'distance': quote.distance,
-        'house_type': quote.house_type
-    }}), 200
-
-
-@app.route('/api/select_quote', methods=['POST'])
-@jwt_required()
-def select_quote():
-    data = request.json
-    if not data or not data.get('quote_id'):
-        return jsonify({'message': 'Invalid input'}), 400
-
-    user_id = get_jwt_identity()['user_id']
-    quote_id = data['quote_id']
+    if not quote_id:
+        return jsonify({'message': 'Quote ID is required'}), 400
 
     quote = Quote.query.filter_by(id=quote_id, user_id=user_id).first()
-
     if not quote:
         return jsonify({'message': 'Quote not found'}), 404
 
-    # Save the selected quote in the database
-    booking = Booking.query.filter_by(user_id=user_id).first()
-    if booking:
-        booking.status = 'Quote Selected'
-        db.session.commit()
-        return jsonify({'message': 'Quote selected successfully', 'quote': {
-            'company_name': quote.company_name,
-            'amount': quote.amount,
-            'distance': quote.distance,
-            'house_type': quote.house_type
-        }}), 201
+    new_booking = Booking(user_id=user_id, quote_id=quote_id, status='Confirmed', date=datetime.utcnow())
+    db.session.add(new_booking)
+    db.session.commit()
 
-    return jsonify({'message': 'No booking found'}), 404
+    # Send booking confirmation email
+    user = User.query.get(user_id)
+    if user:
+        send_email(
+            "Booking Confirmation",
+            user.email,
+            (
+                f"Dear {user.username},\n\n"
+                f"Your booking with Marvel Movers has been confirmed.\n\n"
+                f"Booking Details:\n"
+                f"Property Type: {quote.house_type}\n"
+                f"Distance: {quote.distance} km\n"
+                f"Total Cost: {quote.amount} KSh\n\n"
+                f"Thank you for choosing Marvel Movers!\n"
+                f"Best regards,\n"
+                f"The Marvel Movers Team\n"
+            )
+        )
 
-@app.route('/api/update_status', methods=['POST'])
+    return jsonify({'message': 'Booking created successfully', 'booking_id': new_booking.id}), 201
+
+@app.route('/api/booking/<int:booking_id>', methods=['PUT'])
 @jwt_required()
-def update_status():
+def update_booking(booking_id):
     data = request.json
     user_id = get_jwt_identity()['user_id']
-    booking = Booking.query.filter_by(user_id=user_id).first()
-    
-    if not booking:
-        return jsonify({'message': 'No booking found'}), 404
-    
-    booking.status = data.get('status')
-    db.session.commit()
-    return jsonify({'message': 'Status updated'}), 200
+    booking = Booking.query.filter_by(id=booking_id, user_id=user_id).first()
 
-@app.route('/api/get_status', methods=['GET'])
-@jwt_required()
-def get_status():
-    user_id = get_jwt_identity()['user_id']
-    booking = Booking.query.filter_by(user_id=user_id).first()
-    
     if not booking:
-        return jsonify({'message': 'No booking found'}), 404
-    
-    return jsonify({'status': booking.status}), 200
+        return jsonify({'message': 'Booking not found'}), 404
+
+    quote_id = data.get('quote_id')
+
+    if quote_id is not None:
+        quote = Quote.query.filter_by(id=quote_id, user_id=user_id).first()
+        if not quote:
+            return jsonify({'message': 'Quote not found'}), 404
+        booking.quote_id = quote_id
+
+    booking.status = data.get('status', booking.status)
+    db.session.commit()
+
+    # Send booking update email
+    user = User.query.get(user_id)
+    if user:
+        send_email(
+            "Booking Updated",
+            user.email,
+            (
+                f"Dear {user.username},\n\n"
+                f"Your booking with Marvel Movers has been updated.\n\n"
+                f"Booking Details:\n"
+                f"Property Type: {booking.quote.house_type}\n"
+                f"Distance: {booking.quote.distance} km\n"
+                f"Total Cost: {booking.quote.amount} KSh\n\n"
+                f"Thank you for choosing Marvel Movers!\n"
+                f"Best regards,\n"
+                f"The Marvel Movers Team\n"
+            )
+        )
+
+    return jsonify({'message': 'Booking updated successfully'}), 200
+
+@app.route('/api/booking/<int:booking_id>', methods=['DELETE'])
+@jwt_required()
+def delete_booking(booking_id):
+    user_id = get_jwt_identity()['user_id']
+    booking = Booking.query.filter_by(id=booking_id, user_id=user_id).first()
+
+    if not booking:
+        return jsonify({'message': 'Booking not found'}), 404
+
+    db.session.delete(booking)
+    db.session.commit()
+
+    user = User.query.get(user_id)
+    if user:
+        send_email(
+            "Booking Deleted",
+            user.email,
+            (
+                f"Dear {user.username},\n\n"
+                f"Your booking with Marvel Movers has been successfully deleted.\n\n"
+                f"Best regards,\n"
+                f"The Marvel Movers Team\n"
+            )
+        )
+
+    return jsonify({'message': 'Booking deleted successfully'}), 200
+
+@app.route('/auth/delete_account', methods=['DELETE'])
+@jwt_required()
+def delete_account():
+    user_id = get_jwt_identity()['user_id']
+    user = User.query.get(user_id)
+
+    if not user:
+        return jsonify({'message': 'User not found'}), 404
+
+    # Delete associated inventory, quotes, and bookings
+    Inventory.query.filter_by(user_id=user_id).delete()
+    Quote.query.filter_by(user_id=user_id).delete()
+    Booking.query.filter_by(user_id=user_id).delete()
+
+    db.session.delete(user)
+    db.session.commit()
+
+    # Send account deletion email
+    if user:
+        send_email(
+            "Account Deleted",
+            user.email,
+            (
+                f"Dear {user.username},\n\n"
+                f"Your account with Marvel Movers has been successfully deleted.\n\n"
+                f"Best regards,\n"
+                f"The Marvel Movers Team\n"
+            )
+        )
+
+    return jsonify({'message': 'Account and associated data deleted successfully'}), 200
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()

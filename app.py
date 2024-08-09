@@ -359,8 +359,7 @@ def delete_quote(quote_id):
 
     return jsonify({'message': 'Quote deleted successfully'}), 200
 
-@app.route('/api/booking', methods=['POST'])
-@jwt_required()
+
 @app.route('/api/book', methods=['POST'])
 @jwt_required()
 def book_move():
